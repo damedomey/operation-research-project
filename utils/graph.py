@@ -1,4 +1,3 @@
-import os
 import re
 from graphviz import Digraph
 
@@ -251,7 +250,6 @@ class Graph:
 
 
 if __name__ == '__main__':
-    # create a new graph
     g = Graph()
 
     # add some nodes
@@ -261,16 +259,12 @@ if __name__ == '__main__':
     g.add_node("t")
 
     # add some edges with capacity and flow
-    g.add_edge("s", "u", 10)
-    g.add_edge("s", "v", 5)
-    g.add_edge("u", "v", 15)
-    g.add_edge("u", "t", 5)
-    g.add_edge("v", "t", 10)
+    g.add_edge("s", "u", 10, 0)
+    g.add_edge("s", "v", 5, 0)
+    g.add_edge("u", "v", 15, 0)
+    g.add_edge("u", "t", 5, 0)
+    g.add_edge("v", "t", 10, 0)
 
-    # print the graph again to see the updated flow
     g.print_graph()
-    g.print_graph_image(os.path.join(os.path.dirname(__file__), "..", "data", "graph_test_output.gv"))
-    # Graph.residual(g).print_graph_image(os.path.join(os.path.dirname(__file__), "..", "data", "graph_test_residual_output.gv"))
     g_max, max_flow = g.edmonds_karp("s", "t")
-    g_max.print_graph_image(os.path.join(os.path.dirname(__file__), "..", "data", "graph_test_output_maximum.gv"))
     print("Max flow ", max_flow)

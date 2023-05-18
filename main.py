@@ -1,3 +1,4 @@
+import os
 import sys
 from utils.graph import *
 
@@ -27,15 +28,3 @@ reachable, unreachable = graph.st_cut(graph.source, graph.sink)
 print("s-t cut : ")
 print("--> Reachable nodes : ", reachable)
 print("--> Unreachable nodes : ", unreachable)
-exit(0)
-source = "A"
-sink = "G"
-g = Graph.read_graph_from_file(filepath)
-
-g.print_graph_image("tmp2")
-gmax, flow = g.edmonds_karp(source,sink)
-gmax.print_graph_image("tmp2")
-print("Flow max ", flow)
-reachable, unreachable = g.st_cut(source, sink)
-print("Reachable nodes : ", reachable)
-print("Unreachable nodes : ", unreachable)
