@@ -1,0 +1,6 @@
+data/*
+!data/test*.gv
+!data/data.txt
+out/*
+!out/.keep
+.idea
