@@ -23,6 +23,8 @@ gmax, flow = graph.edmonds_karp(graph.source, graph.sink)
 print("Write the max flow graph in file " + output)
 gmax.print_graph_image(output)
 print("Flow max ", flow)
+print("The flow value traversing each arc is : ")
+gmax.print_graph()
 
 reachable, unreachable = graph.st_cut(graph.source, graph.sink)
 print("s-t cut : ")
