@@ -26,7 +26,10 @@ print("Flow max ", flow)
 print("The flow value traversing each arc is : ")
 gmax.print_graph()
 
-reachable, unreachable = graph.st_cut(graph.source, graph.sink)
-print("s-t cut : ")
+reachable, unreachable, cut_edges = graph.st_cut(graph.source, graph.sink)
+print("\ns-t cut : ")
 print("--> Reachable nodes : ", reachable)
 print("--> Unreachable nodes : ", unreachable)
+print("List of arc that form the minimum cut")
+for source, target in cut_edges:
+    print(source, " - ", target)

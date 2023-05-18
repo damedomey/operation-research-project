@@ -225,7 +225,7 @@ class Graph:
     def st_cut(self, source, sink):
         """ 
         Find the s/t cut in the graph 
-        Return the list of reachable and unreachable
+        Return the list of reachable, unreachable and arc that form min cut
         """
         g_max, max_flow = self.edmonds_karp(source, sink)
         residual = g_max.residual()
@@ -246,7 +246,16 @@ class Graph:
         unreachable = list(set(g_max.get_nodes()) - visited)
         reachable.sort()
         unreachable.sort()
-        return reachable, unreachable
+
+        # find the list of arc that form the min cut
+        cut_edges = []
+        for source in reachable:
+            for target in unreachable:
+                x = self.get_edge_properties(source, target)
+                if x:
+                    cut_edges.append((source, target))
+
+        return reachable, unreachable, cut_edges
 
 
 if __name__ == '__main__':
