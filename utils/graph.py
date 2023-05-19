@@ -1,3 +1,4 @@
+import heapq
 import re
 from graphviz import Digraph
 
@@ -23,11 +24,10 @@ class Graph:
         return list(self.graph.keys())
 
     def add_edge(self, start, end, capacity, cost, flow=0):
-        if capacity == 0 and flow == 0:
-            return
+        # if capacity == 0 and flow == 0:
+        #    return
         if start in self.graph and end in self.graph:
             # FIXME: if this edge already exist ? replace or update ?
-            # todo: bidirectional arc with different cost
             self.graph[start]['edge'][end] = {'capacity': capacity, 'cost': cost, 'flow': flow}
         else:
             raise ValueError("Start or end node not in graph")
@@ -65,7 +65,7 @@ class Graph:
     def print_graph_image(self, filename):
         dot = Digraph(comment='Graph write by David program')
         for node in self.graph:
-            # Get node informations
+            # Get node information
             label = self.graph[node]['description'].get('label', None)
             color = self.graph[node]['description'].get('color', None)
             dot.node(str(node), label=label, color=color)
@@ -256,6 +256,59 @@ class Graph:
                     cut_edges.append((source, target))
 
         return reachable, unreachable, cut_edges
+
+    def dijkstra(self, source):
+        """
+        Compute the shortest path distances from the source node to all other nodes using Dijkstra's algorithm.
+        Return a dictionary with the shortest distances and a dictionary with the previous nodes in the shortest path.
+        """
+        distances = {node: float('inf') for node in self.get_nodes()}
+        distances[source] = 0
+
+        previous = {node: None for node in self.get_nodes()}
+
+        priority_queue = [(0, source)]  # (distance, node)
+        heapq.heapify(priority_queue)
+
+        while priority_queue:
+            current_distance, current_node = heapq.heappop(priority_queue)
+
+            if current_distance > distances[current_node]:
+                continue
+
+            for neighbor in self.get_adjacent_nodes(current_node):
+                edge_props = self.get_edge_properties(current_node, neighbor)
+                weight = edge_props['cost']  # Use the edge cost as the weight
+
+                distance = current_distance + weight
+
+                if distance < distances[neighbor]:
+                    distances[neighbor] = distance
+                    previous[neighbor] = current_node
+                    heapq.heappush(priority_queue, (distance, neighbor))
+
+        return distances, previous
+
+    def min_cost_augmenting_path(self, source, sink):
+        """
+        Compute the minimum cost augmenting path using Dijkstra's algorithm.
+        Return the path as a list of nodes and the cost of the path.
+        """
+        distances, previous = self.dijkstra(source)
+
+        if distances[sink] == float('inf'):
+            return None, None  # No augmenting path exists
+
+            path = []
+            current_node = sink
+            while current_node is not None:
+                path.append(current_node)
+                current_node = previous[current_node]
+            path.reverse()
+
+            cost = distances[sink]
+
+            return path, cost
 
 
 if __name__ == '__main__':

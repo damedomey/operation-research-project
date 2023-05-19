@@ -1,6 +1,7 @@
 import os
 import sys
 from utils.graph import *
+from utils.min_cost import *
 
 if len(sys.argv) >= 2:
     absolute_filepath = sys.argv[1]
@@ -13,7 +14,10 @@ if not os.path.exists(absolute_filepath):
     exit("The file does not exist.")
 
 graph = Graph.read_graph_from_file(absolute_filepath)
-
+cost_graph = get_cost_graph(graph)
+cost_graph.print_graph()
+print(cost_graph.dijkstra(cost_graph.source))
+exit(0)
 output = os.path.join(os.path.dirname(__file__), "out", "out")
 print("Write the graph in file " + output)
 graph.print_graph_image(output)
