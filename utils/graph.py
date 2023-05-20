@@ -1,5 +1,7 @@
 import heapq
 import re
+from collections import deque
+
 from graphviz import Digraph
 
 """
@@ -257,58 +259,72 @@ class Graph:
 
         return reachable, unreachable, cut_edges
 
-    def dijkstra(self, source):
+    def dijkstra(self, source, property: str = "cost"):
         """
         Compute the shortest path distances from the source node to all other nodes using Dijkstra's algorithm.
-        Return a dictionary with the shortest distances and a dictionary with the previous nodes in the shortest path.
+        By default, it's base on the cost. The possible value of [property] are 'cost', 'flow' and 'capacity'
+        :param property the measure field
+        :param source
+        Return a dictionary with the shortest distances, a dictionary with the previous nodes in the shortest path
+        and the value of max maximum flow that can be added to from source to each node.
         """
         distances = {node: float('inf') for node in self.get_nodes()}
+        bottleneck = {node: float('inf') for node in self.get_nodes()}
         distances[source] = 0
 
         previous = {node: None for node in self.get_nodes()}
+        visited = set()
 
-        priority_queue = [(0, source)]  # (distance, node)
-        heapq.heapify(priority_queue)
+        while len(visited) < len(self.get_nodes()):
+            # Find the node with the minimum distance among the unvisited nodes
+            min_distance = float('inf')
+            min_node = None
+            for node in self.get_nodes():
+                if node not in visited and distances[node] < min_distance:
+                    min_distance = distances[node]
+                    min_node = node
 
-        while priority_queue:
-            current_distance, current_node = heapq.heappop(priority_queue)
+            if min_node is None:
+                break
 
-            if current_distance > distances[current_node]:
-                continue
+            visited.add(min_node)
 
-            for neighbor in self.get_adjacent_nodes(current_node):
-                edge_props = self.get_edge_properties(current_node, neighbor)
-                weight = edge_props['cost']  # Use the edge cost as the weight
-
-                distance = current_distance + weight
+            # Update distances and previous nodes for neighbors of the current node
+            for neighbor in self.get_adjacent_nodes(min_node):
+                edge_props = self.get_edge_properties(min_node, neighbor)
+                weight = edge_props[property]
+                b = edge_props['capacity'] - edge_props['flow']
+                distance = distances[min_node] + weight
 
                 if distance < distances[neighbor]:
                     distances[neighbor] = distance
-                    previous[neighbor] = current_node
-                    heapq.heappush(priority_queue, (distance, neighbor))
+                    previous[neighbor] = min_node
 
-        return distances, previous
+                if b < bottleneck[neighbor]:
+                    bottleneck[neighbor] = b
+
+        return distances, previous, bottleneck
 
     def min_cost_augmenting_path(self, source, sink):
         """
-        Compute the minimum cost augmenting path using Dijkstra's algorithm.
+        Compute the minimum cost or capacity augmenting path using Dijkstra's algorithm.
+        :param source
+        :param sink
         Return the path as a list of nodes and the cost of the path.
         """
-        distances, previous = self.dijkstra(source)
+        distances, previous, bottleneck = self.dijkstra(source)
 
         if distances[sink] == float('inf'):
-            return None, None  # No augmenting path exists
+            return None, None
 
-            path = []
-            current_node = sink
-            while current_node is not None:
-                path.append(current_node)
-                current_node = previous[current_node]
-            path.reverse()
+        path = []
+        current_node = sink
+        while current_node is not None:
+            path.append(current_node)
+            current_node = previous[current_node]
+        path.reverse()
 
-            cost = distances[sink]
-
-            return path, cost
+        return path, bottleneck[sink]
 
 
 if __name__ == '__main__':
