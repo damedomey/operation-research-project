@@ -1,7 +1,4 @@
-import heapq
 import re
-from collections import deque
-
 from graphviz import Digraph
 
 """
@@ -259,11 +256,10 @@ class Graph:
 
         return reachable, unreachable, cut_edges
 
-    def dijkstra(self, source, property: str = "cost"):
+    def dijkstra(self, source):
         """
         Compute the shortest path distances from the source node to all other nodes using Dijkstra's algorithm.
-        By default, it's base on the cost. The possible value of [property] are 'cost', 'flow' and 'capacity'
-        :param property the measure field
+        It's base on the cost.
         :param source
         Return a dictionary with the shortest distances, a dictionary with the previous nodes in the shortest path
         and the value of max maximum flow that can be added to from source to each node.
@@ -292,7 +288,7 @@ class Graph:
             # Update distances and previous nodes for neighbors of the current node
             for neighbor in self.get_adjacent_nodes(min_node):
                 edge_props = self.get_edge_properties(min_node, neighbor)
-                weight = edge_props[property]
+                weight = edge_props["cost"]
                 b = edge_props['capacity'] - edge_props['flow']
                 distance = distances[min_node] + weight
 
@@ -325,6 +321,19 @@ class Graph:
         path.reverse()
 
         return path, bottleneck[sink]
+
+    def normalize(self):
+        """ Remove the negative cost in the graph """
+        distances, previous, bottleneck = self.dijkstra(self.source)
+
+        for node in self.get_nodes():
+            parent = previous[node]
+
+            for source, target in [(parent, node), (node, parent)]:
+                props = self.get_edge_properties(source, target)
+                if props:
+                    previous_cost = props['cost']
+                    self.graph[source]['edge'][target]["cost"] = distances[target] - previous_cost + distances[source]
 
 
 if __name__ == '__main__':

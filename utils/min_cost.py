@@ -27,5 +27,3 @@ def prepare(graph: Graph):
     return cost_graph
 
 
-def normalize(graph: Graph):
-    pass
