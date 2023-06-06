@@ -1,3 +1,4 @@
+import heapq
 import re
 from graphviz import Digraph
 
@@ -11,6 +12,7 @@ class Graph:
         self.graph = {}
         self.source = None
         self.sink = None
+        self.negative_cost = False
 
     def add_node(self, node):
         if node not in self.graph:
@@ -23,11 +25,13 @@ class Graph:
         return list(self.graph.keys())
 
     def add_edge(self, start, end, capacity, cost, flow=0):
-        # if capacity == 0 and flow == 0:
-        #    return
+        if capacity == 0:
+            return
         if start in self.graph and end in self.graph:
-            # FIXME: if this edge already exist ? replace or update ?
+            # FIXME: if this edge already exist ? replace or update or throw error ?
             self.graph[start]['edge'][end] = {'capacity': capacity, 'cost': cost, 'flow': flow}
+            if cost < 0:
+                self.negative_cost = True
         else:
             raise ValueError("Start or end node not in graph")
 
@@ -46,8 +50,13 @@ class Graph:
     def update_edge_flow(self, start, end, flow):
         """ Increase the current flow with the new value if possible """
         if start in self.graph and end in self.graph[start]['edge']:
-            # TODO: check if this incrementation satisfy the condition flow <= capacity
-            self.graph[start]['edge'][end]['flow'] += flow
+            current_flow = self.graph[start]['edge'][end]['flow']
+            capacity = self.graph[start]['edge'][end]['capacity']
+            if current_flow + flow <= capacity:
+                self.graph[start]['edge'][end]['flow'] += flow
+            else:
+                raise RuntimeError(f"Unable to add the flow {flow} to the arc  {start} - {end} because the constraint "
+                                   f"flow < capacity fail")
         else:
             raise ValueError("Start or end node not in graph")
 
@@ -59,7 +68,8 @@ class Graph:
         for node in self.graph:
             print(node, ":")
             for adjacent_node, edge_props in self.graph[node]['edge'].items():
-                print("  ->", adjacent_node, ": capacity =", edge_props['capacity'], ", cost = ",  edge_props['cost'], ", flow =", edge_props['flow'])
+                print("  ->", adjacent_node, ": capacity =", edge_props['capacity'], ", cost = ", edge_props['cost'],
+                      ", flow =", edge_props['flow'])
 
     def print_graph_image(self, filename):
         dot = Digraph(comment='Graph write by David program')
@@ -96,7 +106,7 @@ class Graph:
         """ Reads a graph from a Digraph file """
         with open(filename, "r") as f:
             content = f.read()
-        
+
         regex = r'(\d+).*?(\d+)'
         g = Graph()
         for line in content.splitlines():
@@ -150,6 +160,8 @@ class Graph:
 
     def residual(graph):
         residual_graph = Graph()
+        residual_graph.source = graph.source
+        residual_graph.sink = graph.sink
         for node in graph.graph.keys():
             residual_graph.add_node(node)
         for node in graph.graph:
@@ -160,7 +172,7 @@ class Graph:
                 if capacity > 0:
                     residual_capacity = capacity - flow
                     residual_graph.add_edge(node, adjacent_node, residual_capacity, cost)
-                    residual_graph.add_edge(adjacent_node, node, flow, cost)
+                    residual_graph.add_edge(adjacent_node, node, flow, -cost)
         return residual_graph
 
     def edmonds_karp(self, source, sink):
@@ -256,50 +268,28 @@ class Graph:
 
         return reachable, unreachable, cut_edges
 
-    def dijkstra(self, source):
-        """
-        Compute the shortest path distances from the source node to all other nodes using Dijkstra's algorithm.
-        It's base on the cost.
-        :param source
-        Return a dictionary with the shortest distances, a dictionary with the previous nodes in the shortest path
-        and the value of max maximum flow that can be added to from source to each node.
-        """
+    def bellman_ford(self, start):
         distances = {node: float('inf') for node in self.get_nodes()}
-        bottleneck = {node: float('inf') for node in self.get_nodes()}
-        distances[source] = 0
+        distances[start] = 0
+        parents = {node: None for node in self.get_nodes()}
 
-        previous = {node: None for node in self.get_nodes()}
-        visited = set()
-
-        while len(visited) < len(self.get_nodes()):
-            # Find the node with the minimum distance among the unvisited nodes
-            min_distance = float('inf')
-            min_node = None
+        for _ in range(len(self.get_nodes()) - 1):
             for node in self.get_nodes():
-                if node not in visited and distances[node] < min_distance:
-                    min_distance = distances[node]
-                    min_node = node
+                for end in self.get_adjacent_nodes(node):
+                    edge = self.get_edge_properties(node, end)
+                    distance = distances[node] + edge['cost']
+                    if distance < distances[end]:
+                        distances[end] = distance
+                        parents[end] = node
 
-            if min_node is None:
-                break
-
-            visited.add(min_node)
-
-            # Update distances and previous nodes for neighbors of the current node
-            for neighbor in self.get_adjacent_nodes(min_node):
-                edge_props = self.get_edge_properties(min_node, neighbor)
-                weight = edge_props["cost"]
-                b = edge_props['capacity'] - edge_props['flow']
-                distance = distances[min_node] + weight
-
-                if distance < distances[neighbor]:
-                    distances[neighbor] = distance
-                    previous[neighbor] = min_node
-
-                if b < bottleneck[neighbor]:
-                    bottleneck[neighbor] = b
-
-        return distances, previous, bottleneck
+        # Check for negative cycles
+        for node in self.get_nodes():
+            for end in self.get_adjacent_nodes(node):
+                edge = self.get_edge_properties(node, end)
+                distance = distances[node] + edge['cost']
+                if distance < distances[end]:
+                    raise ValueError("Graph contains a negative cycle")
+        return distances, parents
 
     def min_cost_augmenting_path(self, source, sink):
         """
@@ -308,32 +298,35 @@ class Graph:
         :param sink
         Return the path as a list of nodes and the cost of the path.
         """
-        distances, previous, bottleneck = self.dijkstra(source)
+        distances, previous = self.bellman_ford(source)
 
         if distances[sink] == float('inf'):
             return None, None
 
         path = []
+        capacities = []
+        bottleneck = 0
         current_node = sink
+        prev = None
         while current_node is not None:
+            if prev is not None:
+                props = self.get_edge_properties(current_node, prev)
+                capacities.append(props['capacity'] - props['flow'])
             path.append(current_node)
+            prev = current_node
             current_node = previous[current_node]
+
         path.reverse()
+        bottleneck = min(capacities)
 
-        return path, bottleneck[sink]
+        return path, bottleneck
 
-    def normalize(self):
-        """ Remove the negative cost in the graph """
-        distances, previous, bottleneck = self.dijkstra(self.source)
-
-        for node in self.get_nodes():
-            parent = previous[node]
-
-            for source, target in [(parent, node), (node, parent)]:
-                props = self.get_edge_properties(source, target)
-                if props:
-                    previous_cost = props['cost']
-                    self.graph[source]['edge'][target]["cost"] = distances[target] - previous_cost + distances[source]
+    def send_flow_belong_path(self, augmenting_path: list, bottleneck: int):
+        for i in range(len(augmenting_path) - 1):
+            try:
+                self.update_edge_flow(augmenting_path[i], augmenting_path[i + 1], bottleneck)
+            except:
+                pass
 
 
 if __name__ == '__main__':

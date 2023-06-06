@@ -27,3 +27,24 @@ def prepare(graph: Graph):
     return cost_graph
 
 
+def min_cost_flow(graph):
+    """
+        Compute the min cost flow from source to sink in the given graph
+        Return the graph that have max flow, min cost
+    """
+
+    cost_graph = graph
+    internal_cost_graph = prepare(graph)
+    while True:
+        path, bottleneck = internal_cost_graph.min_cost_augmenting_path(internal_cost_graph.source, internal_cost_graph.sink)
+        print("--> ", path, bottleneck)
+
+        if path is None:
+            break
+
+        internal_cost_graph.send_flow_belong_path(path, bottleneck)
+        cost_graph.send_flow_belong_path(path, bottleneck)
+
+        internal_cost_graph = internal_cost_graph.residual()
+
+    return cost_graph
