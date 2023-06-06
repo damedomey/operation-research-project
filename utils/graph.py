@@ -12,7 +12,6 @@ class Graph:
         self.graph = {}
         self.source = None
         self.sink = None
-        self.negative_cost = False
 
     def add_node(self, node):
         if node not in self.graph:
@@ -30,8 +29,6 @@ class Graph:
         if start in self.graph and end in self.graph:
             # FIXME: if this edge already exist ? replace or update or throw error ?
             self.graph[start]['edge'][end] = {'capacity': capacity, 'cost': cost, 'flow': flow}
-            if cost < 0:
-                self.negative_cost = True
         else:
             raise ValueError("Start or end node not in graph")
 
@@ -60,10 +57,6 @@ class Graph:
         else:
             raise ValueError("Start or end node not in graph")
 
-    def update_edge_capacity(self, start, end, flow):
-        # TODO: update capacity
-        pass
-
     def print_graph(self):
         for node in self.graph:
             print(node, ":")
@@ -83,56 +76,6 @@ class Graph:
                 edge_label = f"<<font color='{color}'>{edge_props['flow']}/{edge_props['capacity']} ({edge_props['cost']})</font>>"
                 dot.edge(str(node), str(adjacent_node), label=edge_label, color=color)
             dot.render(filename, view=False, format='pdf')
-
-    def add_node_label(self, node, label):
-        if node in self.graph:
-            self.graph[node]['description']['label'] = label
-        else:
-            raise ValueError("Node not in graph")
-
-    def add_node_color(self, node, color):
-        if node in self.graph:
-            self.graph[node]['description']['color'] = color
-        else:
-            raise ValueError("Node not in graph")
-
-    def add_edge_color(self, start, end, color):
-        if start in self.graph and end in self.graph[start]['edge']:
-            self.graph[start]['edge'][end]['color'] = color
-        else:
-            raise ValueError("Start or end node not in graph")
-
-    def read_graph_from_dot_file(filename: str):
-        """ Reads a graph from a Digraph file """
-        with open(filename, "r") as f:
-            content = f.read()
-
-        regex = r'(\d+).*?(\d+)'
-        g = Graph()
-        for line in content.splitlines():
-            line = line.strip()
-            if "->" in line:
-                edge = line.split()
-                source = edge[0]
-                target, label = edge[2], " ".join(edge[3:])
-                g.add_node(source)
-                g.add_node(target)
-                match = re.search(regex, label)
-                if match:
-                    flow = int(match.group(1))
-                    capacity = int(match.group(2))
-                    if flow > capacity:
-                        _tmp = capacity
-                        capacity = flow
-                        flow = _tmp
-                else:
-                    capacity, flow = 0, 0
-                g.add_edge(source, target, capacity, flow)
-
-            else:
-                # TODO: manage label and color
-                pass
-        return g
 
     def read_graph_from_file(filepath: str):
         """
@@ -235,11 +178,10 @@ class Graph:
 
     def st_cut(self, source, sink):
         """ 
-        Find the s/t cut in the graph 
+        Find the s/t cut in the graph. The current graph must be a maximum graph.
         Return the list of reachable, unreachable and arc that form min cut
         """
-        g_max, max_flow = self.edmonds_karp(source, sink)
-        residual = g_max.residual()
+        residual = self.residual()
         queue = [source]
         visited = set()
 
@@ -254,7 +196,7 @@ class Graph:
                     if neighbor == sink:
                         raise RuntimeError("The sink is reachable so this graph isn't")
         reachable = list(visited)
-        unreachable = list(set(g_max.get_nodes()) - visited)
+        unreachable = list(set(self.get_nodes()) - visited)
         reachable.sort()
         unreachable.sort()
 

@@ -1,7 +1,8 @@
 import os
 import sys
+from copy import deepcopy
 from utils.graph import *
-from utils.min_cost import *
+from utils.min_cost import min_cost_flow
 
 if len(sys.argv) >= 2:
     absolute_filepath = sys.argv[1]
@@ -13,20 +14,9 @@ print("Computation will be done on " + absolute_filepath)
 if not os.path.exists(absolute_filepath):
     exit("The file does not exist.")
 
-output = os.path.join(os.path.dirname(__file__), "out", "out-tmp")
-graph = Graph.read_graph_from_file(absolute_filepath)
-cost_graph = min_cost_flow(graph)
-cost_graph.print_graph_image(output)
-exit(12)
-reachable, unreachable, cut_edges = cost_graph.st_cut(cost_graph.source, cost_graph.sink)
-print("\ns-t cut : ")
-print("--> Reachable nodes : ", reachable)
-print("--> Unreachable nodes : ", unreachable)
-print("List of arc that form the minimum cut")
-for source, target in cut_edges:
-    print(source, " - ", target)
-# print(cost_graph.min_cost_augmenting_path(cost_graph.source, cost_graph.sink))
-exit(0)
+initial_graph = Graph.read_graph_from_file(absolute_filepath)
+graph = deepcopy(initial_graph)
+
 output = os.path.join(os.path.dirname(__file__), "out", "out")
 print("Write the graph in file " + output)
 graph.print_graph_image(output)
@@ -46,3 +36,13 @@ print("--> Unreachable nodes : ", unreachable)
 print("List of arc that form the minimum cut")
 for source, target in cut_edges:
     print(source, " - ", target)
+
+
+# min cost
+cost_graph, flow = min_cost_flow(initial_graph)
+print("\nMin cost")
+print("Write the min cost max flow graph in file ", output)
+print("Max flow : ", flow)
+output = os.path.join(os.path.dirname(__file__), "out", "min cost graph")
+cost_graph.print_graph_image(output)
+cost_graph.print_graph()

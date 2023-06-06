@@ -34,17 +34,17 @@ def min_cost_flow(graph):
     """
 
     cost_graph = graph
+    max_flow = 0
     internal_cost_graph = prepare(graph)
     while True:
         path, bottleneck = internal_cost_graph.min_cost_augmenting_path(internal_cost_graph.source, internal_cost_graph.sink)
-        print("--> ", path, bottleneck)
 
         if path is None:
             break
 
         internal_cost_graph.send_flow_belong_path(path, bottleneck)
         cost_graph.send_flow_belong_path(path, bottleneck)
-
+        max_flow += bottleneck
         internal_cost_graph = internal_cost_graph.residual()
 
-    return cost_graph
+    return cost_graph, max_flow
