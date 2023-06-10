@@ -37,7 +37,8 @@ def min_cost_flow(graph):
     max_flow = 0
     internal_cost_graph = prepare(graph)
     while True:
-        path, bottleneck = internal_cost_graph.min_cost_augmenting_path(internal_cost_graph.source, internal_cost_graph.sink)
+        path, bottleneck = internal_cost_graph.min_cost_augmenting_path(internal_cost_graph.source,
+                                                                        internal_cost_graph.sink)
 
         if path is None:
             break
@@ -48,3 +49,29 @@ def min_cost_flow(graph):
         internal_cost_graph = internal_cost_graph.residual()
 
     return cost_graph, max_flow
+
+
+def get_cost(graph):
+    """
+    Compute the cost of the flow in the given graph
+    :param graph:
+    :return: The cost
+    """
+    cost = 0
+
+    for node in graph.get_nodes():
+        for adj in graph.get_adjacent_nodes(node):
+            props = graph.get_edge_properties(node, adj)
+            cost += props["cost"] * props["flow"]
+
+    return cost
+
+
+def print_st_cut(graph):
+    reachable, unreachable, cut_edges = graph.st_cut(graph.source, graph.sink)
+    print("\ns-t cut : ")
+    print("--> Reachable nodes : ", reachable)
+    print("--> Unreachable nodes : ", unreachable)
+    print("List of arc that form the minimum cut")
+    for source, target in cut_edges:
+        print(source, " - ", target)

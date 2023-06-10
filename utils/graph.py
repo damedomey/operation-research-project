@@ -247,7 +247,6 @@ class Graph:
 
         path = []
         capacities = []
-        bottleneck = 0
         current_node = sink
         prev = None
         while current_node is not None:
