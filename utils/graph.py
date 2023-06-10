@@ -1,3 +1,4 @@
+import heapq
 import re
 from graphviz import Digraph
 
@@ -23,11 +24,10 @@ class Graph:
         return list(self.graph.keys())
 
     def add_edge(self, start, end, capacity, cost, flow=0):
-        if capacity == 0 and flow == 0:
+        if capacity == 0:
             return
         if start in self.graph and end in self.graph:
-            # FIXME: if this edge already exist ? replace or update ?
-            # todo: bidirectional arc with different cost
+            # FIXME: if this edge already exist ? replace or update or throw error ?
             self.graph[start]['edge'][end] = {'capacity': capacity, 'cost': cost, 'flow': flow}
         else:
             raise ValueError("Start or end node not in graph")
@@ -47,25 +47,27 @@ class Graph:
     def update_edge_flow(self, start, end, flow):
         """ Increase the current flow with the new value if possible """
         if start in self.graph and end in self.graph[start]['edge']:
-            # TODO: check if this incrementation satisfy the condition flow <= capacity
-            self.graph[start]['edge'][end]['flow'] += flow
+            current_flow = self.graph[start]['edge'][end]['flow']
+            capacity = self.graph[start]['edge'][end]['capacity']
+            if current_flow + flow <= capacity:
+                self.graph[start]['edge'][end]['flow'] += flow
+            else:
+                raise RuntimeError(f"Unable to add the flow {flow} to the arc  {start} - {end} because the constraint "
+                                   f"flow < capacity fail")
         else:
             raise ValueError("Start or end node not in graph")
-
-    def update_edge_capacity(self, start, end, flow):
-        # TODO: update capacity
-        pass
 
     def print_graph(self):
         for node in self.graph:
             print(node, ":")
             for adjacent_node, edge_props in self.graph[node]['edge'].items():
-                print("  ->", adjacent_node, ": capacity =", edge_props['capacity'], ", cost = ",  edge_props['cost'], ", flow =", edge_props['flow'])
+                print("  ->", adjacent_node, ": capacity =", edge_props['capacity'], ", cost = ", edge_props['cost'],
+                      ", flow =", edge_props['flow'])
 
     def print_graph_image(self, filename):
         dot = Digraph(comment='Graph write by David program')
         for node in self.graph:
-            # Get node informations
+            # Get node information
             label = self.graph[node]['description'].get('label', None)
             color = self.graph[node]['description'].get('color', None)
             dot.node(str(node), label=label, color=color)
@@ -74,56 +76,6 @@ class Graph:
                 edge_label = f"<<font color='{color}'>{edge_props['flow']}/{edge_props['capacity']} ({edge_props['cost']})</font>>"
                 dot.edge(str(node), str(adjacent_node), label=edge_label, color=color)
             dot.render(filename, view=False, format='pdf')
-
-    def add_node_label(self, node, label):
-        if node in self.graph:
-            self.graph[node]['description']['label'] = label
-        else:
-            raise ValueError("Node not in graph")
-
-    def add_node_color(self, node, color):
-        if node in self.graph:
-            self.graph[node]['description']['color'] = color
-        else:
-            raise ValueError("Node not in graph")
-
-    def add_edge_color(self, start, end, color):
-        if start in self.graph and end in self.graph[start]['edge']:
-            self.graph[start]['edge'][end]['color'] = color
-        else:
-            raise ValueError("Start or end node not in graph")
-
-    def read_graph_from_dot_file(filename: str):
-        """ Reads a graph from a Digraph file """
-        with open(filename, "r") as f:
-            content = f.read()
-        
-        regex = r'(\d+).*?(\d+)'
-        g = Graph()
-        for line in content.splitlines():
-            line = line.strip()
-            if "->" in line:
-                edge = line.split()
-                source = edge[0]
-                target, label = edge[2], " ".join(edge[3:])
-                g.add_node(source)
-                g.add_node(target)
-                match = re.search(regex, label)
-                if match:
-                    flow = int(match.group(1))
-                    capacity = int(match.group(2))
-                    if flow > capacity:
-                        _tmp = capacity
-                        capacity = flow
-                        flow = _tmp
-                else:
-                    capacity, flow = 0, 0
-                g.add_edge(source, target, capacity, flow)
-
-            else:
-                # TODO: manage label and color
-                pass
-        return g
 
     def read_graph_from_file(filepath: str):
         """
@@ -151,6 +103,8 @@ class Graph:
 
     def residual(graph):
         residual_graph = Graph()
+        residual_graph.source = graph.source
+        residual_graph.sink = graph.sink
         for node in graph.graph.keys():
             residual_graph.add_node(node)
         for node in graph.graph:
@@ -161,7 +115,7 @@ class Graph:
                 if capacity > 0:
                     residual_capacity = capacity - flow
                     residual_graph.add_edge(node, adjacent_node, residual_capacity, cost)
-                    residual_graph.add_edge(adjacent_node, node, flow, cost)
+                    residual_graph.add_edge(adjacent_node, node, flow, -cost)
         return residual_graph
 
     def edmonds_karp(self, source, sink):
@@ -224,11 +178,10 @@ class Graph:
 
     def st_cut(self, source, sink):
         """ 
-        Find the s/t cut in the graph 
+        Find the s/t cut in the graph. The current graph must be a maximum graph.
         Return the list of reachable, unreachable and arc that form min cut
         """
-        g_max, max_flow = self.edmonds_karp(source, sink)
-        residual = g_max.residual()
+        residual = self.residual()
         queue = [source]
         visited = set()
 
@@ -243,7 +196,7 @@ class Graph:
                     if neighbor == sink:
                         raise RuntimeError("The sink is reachable so this graph isn't")
         reachable = list(visited)
-        unreachable = list(set(g_max.get_nodes()) - visited)
+        unreachable = list(set(self.get_nodes()) - visited)
         reachable.sort()
         unreachable.sort()
 
@@ -256,6 +209,65 @@ class Graph:
                     cut_edges.append((source, target))
 
         return reachable, unreachable, cut_edges
+
+    def bellman_ford(self, start):
+        distances = {node: float('inf') for node in self.get_nodes()}
+        distances[start] = 0
+        parents = {node: None for node in self.get_nodes()}
+
+        for _ in range(len(self.get_nodes()) - 1):
+            for node in self.get_nodes():
+                for end in self.get_adjacent_nodes(node):
+                    edge = self.get_edge_properties(node, end)
+                    distance = distances[node] + edge['cost']
+                    if distance < distances[end]:
+                        distances[end] = distance
+                        parents[end] = node
+
+        # Check for negative cycles
+        for node in self.get_nodes():
+            for end in self.get_adjacent_nodes(node):
+                edge = self.get_edge_properties(node, end)
+                distance = distances[node] + edge['cost']
+                if distance < distances[end]:
+                    raise ValueError("Graph contains a negative cycle")
+        return distances, parents
+
+    def min_cost_augmenting_path(self, source, sink):
+        """
+        Compute the minimum cost or capacity augmenting path using Dijkstra's algorithm.
+        :param source
+        :param sink
+        Return the path as a list of nodes and the cost of the path.
+        """
+        distances, previous = self.bellman_ford(source)
+
+        if distances[sink] == float('inf'):
+            return None, None
+
+        path = []
+        capacities = []
+        current_node = sink
+        prev = None
+        while current_node is not None:
+            if prev is not None:
+                props = self.get_edge_properties(current_node, prev)
+                capacities.append(props['capacity'] - props['flow'])
+            path.append(current_node)
+            prev = current_node
+            current_node = previous[current_node]
+
+        path.reverse()
+        bottleneck = min(capacities)
+
+        return path, bottleneck
+
+    def send_flow_belong_path(self, augmenting_path: list, bottleneck: int):
+        for i in range(len(augmenting_path) - 1):
+            try:
+                self.update_edge_flow(augmenting_path[i], augmenting_path[i + 1], bottleneck)
+            except:
+                pass
 
 
 if __name__ == '__main__':
